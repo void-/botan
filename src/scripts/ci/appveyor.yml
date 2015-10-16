@@ -4,9 +4,10 @@ platform:
   - x86
   - x86_amd64
 
-matrix:
-  - build_mode: shared
-  - build_mode: static
+environment:
+  matrix:
+    - MODE: static
+    - MODE: shared
 
 install:
   - call "%ProgramFiles(x86)%\Microsoft Visual Studio 12.0\VC\vcvarsall.bat" %PLATFORM%

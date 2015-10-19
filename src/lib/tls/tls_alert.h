@@ -61,7 +61,6 @@ class BOTAN_DLL Alert
 
          // pseudo alert values
          NULL_ALERT                      = 256,
-         HEARTBEAT_PAYLOAD               = 257
       };
 
       /**

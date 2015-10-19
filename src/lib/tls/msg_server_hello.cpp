@@ -44,9 +44,6 @@ Server_Hello::Server_Hello(Handshake_IO& io,
    if(size_t max_fragment_size = client_hello.fragment_size())
       m_extensions.add(new Maximum_Fragment_Length(max_fragment_size));
 
-   if(policy.negotiate_heartbeat_support() && client_hello.supports_heartbeats())
-      m_extensions.add(new Heartbeat_Support_Indicator(true));
-
    if(next_protocol != "" && client_hello.supports_alpn())
       m_extensions.add(new Application_Layer_Protocol_Notification(next_protocol));
 
@@ -98,9 +95,6 @@ Server_Hello::Server_Hello(Handshake_IO& io,
 
    if(size_t max_fragment_size = resumed_session.fragment_size())
       m_extensions.add(new Maximum_Fragment_Length(max_fragment_size));
-
-   if(policy.negotiate_heartbeat_support() && client_hello.supports_heartbeats())
-      m_extensions.add(new Heartbeat_Support_Indicator(true));
 
    if(next_protocol != "" && client_hello.supports_alpn())
       m_extensions.add(new Application_Layer_Protocol_Notification(next_protocol));

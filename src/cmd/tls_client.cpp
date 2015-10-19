@@ -265,8 +265,6 @@ int tls_client(int argc, char* argv[])
                   client.close();
                   }
                }
-            else if(buf[0] == 'H')
-               client.heartbeat(&buf[1], got-1);
             else
                client.send(buf, got);
             }

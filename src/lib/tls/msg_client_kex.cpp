@@ -18,6 +18,8 @@
 #include <botan/rng.h>
 #include <botan/loadstor.h>
 
+#include <botan/curve25519.h>
+
 namespace Botan {
 
 namespace TLS {
@@ -161,28 +163,54 @@ Client_Key_Exchange::Client_Key_Exchange(Handshake_IO& io,
          if(name == "")
             throw Decoding_Error("Server sent unknown named curve " + std::to_string(curve_id));
 
-         EC_Group group(name);
+         if(name == "Curve25519")
+             {
+             std::vector<byte> ecdh_key_ = reader.get_range<byte>(1, 1, 255);
+             secure_vector<byte> ecdh_key(ecdh_key_.size());
+             copy_mem(ecdh_key.data(), ecdh_key_.data(), ecdh_key_.size());
 
-         std::vector<byte> ecdh_key = reader.get_range<byte>(1, 1, 255);
+             Curve25519_PublicKey counterparty_key(ecdh_key);
+             //ECDH_PublicKey counterparty_key(group, OS2ECP(ecdh_key, group.get_curve()));
 
-         ECDH_PublicKey counterparty_key(group, OS2ECP(ecdh_key, group.get_curve()));
+             Curve25519_PrivateKey priv_key(rng);
+             //ECDH_PrivateKey priv_key(rng, group);
 
-         ECDH_PrivateKey priv_key(rng, group);
+             PK_Key_Agreement ka(priv_key, "Raw");
 
-         PK_Key_Agreement ka(priv_key, "Raw");
+             secure_vector<byte> ecdh_secret =
+                ka.derive_key(0, counterparty_key.public_value()).bits_of();
 
-         secure_vector<byte> ecdh_secret =
-            ka.derive_key(0, counterparty_key.public_value()).bits_of();
+             m_pre_master = ecdh_secret;
 
-         if(kex_algo == "ECDH")
-            m_pre_master = ecdh_secret;
+             append_tls_length_value(m_key_material, priv_key.public_value(), 1);
+
+             }
          else
-            {
-            append_tls_length_value(m_pre_master, ecdh_secret, 2);
-            append_tls_length_value(m_pre_master, psk.bits_of(), 2);
-            }
+             {
+             EC_Group group(name);
 
-         append_tls_length_value(m_key_material, priv_key.public_value(), 1);
+             std::vector<byte> ecdh_key = reader.get_range<byte>(1, 1, 255);
+
+             ECDH_PublicKey counterparty_key(group, OS2ECP(ecdh_key, group.get_curve()));
+
+             ECDH_PrivateKey priv_key(rng, group);
+
+             PK_Key_Agreement ka(priv_key, "Raw");
+
+             secure_vector<byte> ecdh_secret =
+                ka.derive_key(0, counterparty_key.public_value()).bits_of();
+
+             if(kex_algo == "ECDH")
+                m_pre_master = ecdh_secret;
+             else
+                {
+                append_tls_length_value(m_pre_master, ecdh_secret, 2);
+                append_tls_length_value(m_pre_master, psk.bits_of(), 2);
+                }
+
+             append_tls_length_value(m_key_material, priv_key.public_value(), 1);
+
+             }
          }
       else if(kex_algo == "SRP_SHA")
          {

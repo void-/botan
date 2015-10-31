@@ -18,6 +18,8 @@
 #include <botan/srp6.h>
 #include <botan/oids.h>
 
+#include <botan/curve25519.h>
+
 namespace Botan {
 
 namespace TLS {
@@ -66,25 +68,43 @@ Server_Key_Exchange::Server_Key_Exchange(Handshake_IO& io,
          throw TLS_Exception(Alert::HANDSHAKE_FAILURE,
                              "Could not agree on an ECC curve with the client");
 
-      EC_Group ec_group(curve_name);
+      if(curve_name == "Curve25519")
+          {
+          std::unique_ptr<Curve25519_PrivateKey> ecdh(new Curve25519_PrivateKey(rng));
 
-      std::unique_ptr<ECDH_PrivateKey> ecdh(new ECDH_PrivateKey(rng, ec_group));
+          const u16bit named_curve_id = Supported_Elliptic_Curves::name_to_curve_id(curve_name);
 
-      const std::string ecdh_domain_oid = ecdh->domain().get_oid();
-      const std::string domain = OIDS::lookup(OID(ecdh_domain_oid));
+          m_params.push_back(3); // named curve
+          m_params.push_back(get_byte(0, named_curve_id));
+          m_params.push_back(get_byte(1, named_curve_id));
 
-      if(domain == "")
-         throw Internal_Error("Could not find name of ECDH domain " + ecdh_domain_oid);
+          append_tls_length_value(m_params, ecdh->public_value(), 1);
 
-      const u16bit named_curve_id = Supported_Elliptic_Curves::name_to_curve_id(domain);
+          m_kex_key.reset(ecdh.release());
 
-      m_params.push_back(3); // named curve
-      m_params.push_back(get_byte(0, named_curve_id));
-      m_params.push_back(get_byte(1, named_curve_id));
+          }
+      else
+          {
+          EC_Group ec_group(curve_name);
 
-      append_tls_length_value(m_params, ecdh->public_value(), 1);
+          std::unique_ptr<ECDH_PrivateKey> ecdh(new ECDH_PrivateKey(rng, ec_group));
 
-      m_kex_key.reset(ecdh.release());
+          const std::string ecdh_domain_oid = ecdh->domain().get_oid();
+          const std::string domain = OIDS::lookup(OID(ecdh_domain_oid));
+
+          if(domain == "")
+             throw Internal_Error("Could not find name of ECDH domain " + ecdh_domain_oid);
+
+          const u16bit named_curve_id = Supported_Elliptic_Curves::name_to_curve_id(domain);
+
+          m_params.push_back(3); // named curve
+          m_params.push_back(get_byte(0, named_curve_id));
+          m_params.push_back(get_byte(1, named_curve_id));
+
+          append_tls_length_value(m_params, ecdh->public_value(), 1);
+
+          m_kex_key.reset(ecdh.release());
+          }
       }
    else if(kex_algo == "SRP_SHA")
       {
